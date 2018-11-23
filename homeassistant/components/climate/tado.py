@@ -1,6 +1,5 @@
 """
 Tado component to create a climate device for each zone.
-
 For more details about this platform, please refer to the documentation at
 https://home-assistant.io/components/climate.tado/
 """
@@ -76,6 +75,7 @@ def create_climate_device(tado, hass, zone, name, zone_id):
 
     unit = TEMP_CELSIUS
     ac_mode = capabilities['type'] == 'AIR_CONDITIONING'
+    deviceType = capabilities['type']
 
     if ac_mode:
         temperatures = capabilities['HEAT']['temperatures']
@@ -93,7 +93,7 @@ def create_climate_device(tado, hass, zone, name, zone_id):
                          name, zone_id, data_id,
                          hass.config.units.temperature(min_temp, unit),
                          hass.config.units.temperature(max_temp, unit),
-                         ac_mode)
+                         ac_mode, deviceType)
 
     tado.add_sensor(data_id, {
         'id': zone_id,
@@ -109,7 +109,7 @@ class TadoClimate(ClimateDevice):
     """Representation of a tado climate device."""
 
     def __init__(self, store, zone_name, zone_id, data_id,
-                 min_temp, max_temp, ac_mode,
+                 min_temp, max_temp, ac_mode, deviceType,
                  tolerance=0.3):
         """Initialize of Tado climate device."""
         self._store = store
@@ -119,6 +119,7 @@ class TadoClimate(ClimateDevice):
         self.zone_id = zone_id
 
         self.ac_mode = ac_mode
+        self._deviceType = deviceType
 
         self._active = False
         self._device_is_active = False
@@ -202,6 +203,11 @@ class TadoClimate(ClimateDevice):
     def target_temperature(self):
         """Return the temperature we try to reach."""
         return self._target_temp
+
+    @property
+    def deviceType(self):
+        """Return the deviceType."""
+        return self._deviceType
 
     def set_temperature(self, **kwargs):
         """Set new target temperature."""
@@ -344,13 +350,13 @@ class TadoClimate(ClimateDevice):
         if self._current_operation == CONST_MODE_OFF:
             _LOGGER.info("Switching mytado.com to OFF for zone %s",
                          self.zone_name)
-            self._store.set_zone_overlay(self.zone_id, CONST_OVERLAY_MANUAL)
+            self._store.set_zone_overlay(self.zone_id, CONST_OVERLAY_MANUAL, None, None, self._deviceType, "OFF" )
             self._overlay_mode = self._current_operation
             return
 
         _LOGGER.info("Switching mytado.com to %s mode for zone %s",
                      self._current_operation, self.zone_name)
         self._store.set_zone_overlay(
-            self.zone_id, self._current_operation, self._target_temp)
+            self.zone_id, self._current_operation, self._target_temp, None, self._deviceType, "ON")
 
         self._overlay_mode = self._current_operation
